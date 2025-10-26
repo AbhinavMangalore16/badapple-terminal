@@ -11,8 +11,14 @@ import fpstimer
 from PIL import Image
 from multiprocessing import Pool, cpu_count, Process, Manager
 import urllib.request
-
-DOWN_URL = "https://github.com/AbhinavMangalore16/badapple-terminal/raw/main/assets/badapple.mp4"
+from tqdm import tqdm
+def get_frame_size():
+    try:
+        columns, _ = shutil.get_terminal_size(fallback=(150, 40))
+        return max(10, columns - 5)
+    except Exception:
+        return 150
+DOWN_URL = "https://raw.githubusercontent.com/AbhinavMangalore16/badapple-terminal/main/badapple_terminal/assets/badapple.mp4"
 VIDEO_FILE = "badapple.mp4"
 
 RED = "\033[31m"
@@ -22,49 +28,53 @@ BLUE = "\033[34m"
 MAGENTA = "\033[35m"
 CYAN = "\033[36m"
 RESET = "\033[0m"
-ASCII_CHARS = [" ",",",":", ";","+","*","?","%","S","#","@",]
-FRAME_SIZE = 150
+ASCII_CHARS = [" ", ".", "`", ":", "-", "~", "+", "*", "=", "%", "#", "@"]
+FRAME_SIZE = get_frame_size()
 FRAME_RATE = 1/30
 
 TERMINAL_VIDEO = []
 
 apple_frames = [
 r"""
-             .:'
-         __ :'__
-      .'`  `-'  ``.
-     :             :
-     :             :
-      :           :
-       `.__.-.__.'
+                           .:'
+                       __ :'__
+                    .'`  `-'  ``.
+                   :             :
+                   :             :
+                    :           :
+                     `.__.-.__.'
 """,
 r"""
-             .:'
-         __ :'__
-      .'`  `-'  ``.
-     :          .-'
-     :         :
-      :         `-;
-       `.__.-.__.'
+                           .:'
+                       __ :'__
+                    .'`  `-'  ``.
+                   :          .-'
+                   :         :
+                    :         `-;
+                     `.__.-.__.'
 """,
 r"""
-             .:'
-         __ :'__
-      .'`__`-'__``.
-     :__________.-'
-     :_________:
-      :_________`-;
-       `.__.-.__.'
+                           .:'
+                       __ :'__
+                    .'`__`-'__``.
+                   :__________.-'
+                   :_________:
+                    :_________`-;
+                     `.__.-.__.'
 """,
-
 ]
+ 
+    
 def ensure_video():
+    VIDEO_FILE = "./assets/badapple.mp4"
     if not os.path.exists(VIDEO_FILE):
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(VIDEO_FILE), exist_ok=True)
         print("Downloading Bad Apple video (~200MB)...")
         urllib.request.urlretrieve(DOWN_URL, VIDEO_FILE)
         print("Download complete!")
-
     return VIDEO_FILE
+
 def rotate_apple(frames, loops=5, delay=0.15):
     for _ in range(loops):
         for frame in frames + frames[::-1]:  
@@ -72,6 +82,7 @@ def rotate_apple(frames, loops=5, delay=0.15):
             sys.stdout.write(RED + frame + RESET)
             sys.stdout.flush()
             time.sleep(delay)
+
 def show_credits(user_name="You!"):
     print("\n" + CYAN + "="*70 + RESET)
     print(CYAN + "                           **CREDITS**" + RESET)
@@ -82,27 +93,34 @@ def show_credits(user_name="You!"):
     print("Inspired by open-source Bad Apple!! terminal projects by the community.")
     print(GREEN + f"And {user_name}! {getpass.getuser()}! To play on your terminal.." + RESET)  
     print(CYAN + "="*70 + RESET + "\n")
+
 def signal_handler(sig, frame):
     print("\nI'm sorry, but did you interrupt?")
     show_credits()
     sys.exit(0)
+
 def resize_image(image_frame):
     width, height = image_frame.size
     aspect_ratio = (height/float(width * 2.5)) 
     new_height = int(aspect_ratio*FRAME_SIZE)
     resized_image = image_frame.resize((FRAME_SIZE, new_height))
     return resized_image
+
 def characterize(img):
     pixies = img.getdata()
-    chars = "".join([ASCII_CHARS[pixy//25] for pixy in pixies])
+    chars = "".join([ASCII_CHARS[pixy * len(ASCII_CHARS) // 256] for pixy in pixies])
     return chars
+
 def extractor(video_path, start_frame, nf=1000):
     cap = cv2.VideoCapture(video_path)
     cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
-    c = 1
-    ret, img_frame = cap.read()
     
-    while ret and c <= nf:
+    ret, img_frame = cap.read()
+    c = 1
+
+    for _ in tqdm(range(nf), desc="Extracting frames"):
+        if not ret:
+            break
         try:
             img = Image.fromarray(img_frame)
             ASCII_chars = characterize(resize_image(img.convert("L")))
@@ -111,15 +129,19 @@ def extractor(video_path, start_frame, nf=1000):
             TERMINAL_VIDEO.append(video_frame)
         except Exception:
             pass
+        
         c += 1
         ret, img_frame = cap.read()  # read next frame
+
     cap.release()
+
 def play_audio(path):
     pygame.init()
     pygame.mixer.pre_init(44100, -16, 2, 2048)
     pygame.mixer.init()
     pygame.mixer.music.load(path)
     pygame.mixer.music.play()
+
 def play_terminal():
     os.system('mode 150, 500')
     timer = fpstimer.FPSTimer(30)
@@ -127,6 +149,7 @@ def play_terminal():
     for frame_number in range(len(TERMINAL_VIDEO)):
         sys.stdout.write("\r" + TERMINAL_VIDEO[frame_number])
         timer.sleep()
+
 def preprocessing(video):
     if os.path.exists(video):
         vid = video.strip()
@@ -135,7 +158,7 @@ def preprocessing(video):
         cap.release()
 
         VIDEO = mp.VideoFileClip(vid)
-        audio = 'badapple.mp3'
+        audio = 'assets/badapple.mp3'
         VIDEO.audio.write_audiofile(audio)
         frames_per_process = TOTAL // 4
         ranges = [(i * frames_per_process + 1, (i + 1) * frames_per_process) for i in range(4)]
@@ -154,34 +177,45 @@ signal.signal(signal.SIGINT, signal_handler)
 def main():
     try:
         rotate_apple(apple_frames, loops=3)
-
         sys.stdout.write('\n')
-        sys.stdout.write('============================================\n')
-        sys.stdout.write('                 BAD APPLE!!                \n')
-        sys.stdout.write('============================================\n')
-        sys.stdout.write("A terminal rendition of the classic Touhou shadow video!\n\n")
+        sys.stdout.write(CYAN + '========================================================\n' + RESET)
+        sys.stdout.write(MAGENTA + '                     BAD APPLE!!                \n' + RESET)
+        sys.stdout.write(CYAN + '========================================================\n' + RESET)
+        sys.stdout.write(YELLOW + "A terminal rendition of the classic Touhou shadow video!\n\n" + RESET)
 
         while True:
-            sys.stdout.write("Lessgo!? (Y/N): ")
+            sys.stdout.write(CYAN + "Lessgo!? (Y/N): " + RESET)
             ch = input().strip().lower()
 
             if ch == 'y':
                 VIDEO_FILE = ensure_video()
-                frags = preprocessing(VIDEO_FILE)
-                play_audio('badapple.mp3')
+                fragments = preprocessing(VIDEO_FILE)
+                countdown_colors = [RED, YELLOW, GREEN]
+                for i, color in zip(range(3, 0, -1), countdown_colors):
+                    sys.stdout.write(f"\r{color}Starting video in {i}...{RESET}")
+                    sys.stdout.flush()
+                    time.sleep(1)
+
+                # "Starting now!" in GREEN
+                sys.stdout.write(f"\r{GREEN}Starting now!        {RESET}\n")
+                time.sleep(0.75)
+
+                # Play audio and video
+                play_audio('assets/badapple.mp3')
                 play_terminal()
                 break
 
             elif ch == 'n':
-                sys.stdout.write("Alright, exiting...\n")
+                sys.stdout.write(YELLOW + "Alright, exiting... 🍎\n" + RESET)
                 break
 
             else:
-                sys.stdout.write("I couldn't get you! Please enter Y or N.\n")
+                sys.stdout.write(RED + "I couldn't get you! Please enter Y or N.\n" + RESET)
                 continue
 
     finally:
         show_credits()
+
 
 if __name__ == '__main__':
     main()
