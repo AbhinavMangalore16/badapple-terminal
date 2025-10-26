@@ -2,8 +2,11 @@ from setuptools import setup, find_packages
 
 setup(
     name="badapple-terminal",
-    version="0.1.0",
+    version="0.1.1",
     description="Play Bad Apple!! video in the terminal as ASCII art with audio",
+    long_description=open("README.md", encoding="utf-8").read(),
+    long_description_content_type="text/markdown",
+    url="https://github.com/AbhinavMangalore16/badapple-terminal",
     author="Abhinav Mangalore",
     author_email="abhinavm16104@gmail.com",
     packages=find_packages(include=["badapple_terminal", "badapple_terminal.*"]),
