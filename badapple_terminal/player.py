@@ -12,29 +12,37 @@ from PIL import Image
 from multiprocessing import Pool, cpu_count, Process, Manager
 import urllib.request
 from tqdm import tqdm
-def get_frame_size():
+from typing import List
+
+def get_frame_size() -> int:
+    """
+    Determine an appropriate frame width based on the terminal size.
+
+    Returns:
+        int: Width of the terminal for ASCII frames.
+    """
     try:
         columns, _ = shutil.get_terminal_size(fallback=(150, 40))
         return max(10, columns - 5)
     except Exception:
         return 150
-DOWN_URL = "https://raw.githubusercontent.com/AbhinavMangalore16/badapple-terminal/main/badapple_terminal/assets/badapple.mp4"
-VIDEO_FILE = "badapple.mp4"
+DOWN_URL:str = "https://raw.githubusercontent.com/AbhinavMangalore16/badapple-terminal/main/badapple_terminal/assets/badapple.mp4"
+VIDEO_FILE:str = "badapple.mp4"
 
-RED = "\033[31m"
-GREEN = "\033[32m"
-YELLOW = "\033[33m"
-BLUE = "\033[34m"
-MAGENTA = "\033[35m"
-CYAN = "\033[36m"
-RESET = "\033[0m"
-ASCII_CHARS = [" ", ".", "`", ":", "-", "~", "+", "*", "=", "%", "#", "@"]
-FRAME_SIZE = get_frame_size()
-FRAME_RATE = 1/30
+RED:str = "\033[31m"
+GREEN:str = "\033[32m"
+YELLOW:str = "\033[33m"
+BLUE:str = "\033[34m"
+MAGENTA:str = "\033[35m"
+CYAN:str = "\033[36m"
+RESET:str = "\033[0m"
+ASCII_CHARS: List[str] = [" ", ".", "`", ":", "-", "~", "+", "*", "=", "%", "#", "@"]
+FRAME_SIZE:int = get_frame_size()
+FRAME_RATE:float = 1/30
 
-TERMINAL_VIDEO = []
+TERMINAL_VIDEO:List[str] = []
 
-apple_frames = [
+apple_frames: List[str] = [
 r"""
                            .:'
                        __ :'__
@@ -65,7 +73,14 @@ r"""
 ]
  
     
-def ensure_video():
+def ensure_video() -> str:
+    """
+    Ensure the Bad Apple video exists locally.
+    Downloads the video if not present.
+
+    Returns:
+        str: Path to the video file.
+    """
     VIDEO_FILE = "./assets/badapple.mp4"
     if not os.path.exists(VIDEO_FILE):
         # Ensure directory exists
@@ -75,7 +90,15 @@ def ensure_video():
         print("Download complete!")
     return VIDEO_FILE
 
-def rotate_apple(frames, loops=5, delay=0.15):
+def rotate_apple(frames: List[str], loops:int=5, delay:float=0.15):
+    """
+    Display a simple apple ASCII animation in the terminal.
+
+    Args:
+        frames (list[str]): List of ASCII frames.
+        loops (int, optional): Number of loops to repeat. Defaults to 5.
+        delay (float, optional): Delay between frames in seconds. Defaults to 0.15.
+    """
     for _ in range(loops):
         for frame in frames + frames[::-1]:  
             os.system('cls' if os.name == 'nt' else 'clear')
@@ -83,7 +106,13 @@ def rotate_apple(frames, loops=5, delay=0.15):
             sys.stdout.flush()
             time.sleep(delay)
 
-def show_credits(user_name="You!"):
+def show_credits(user_name:str="You!"):
+    """
+    Display the credits at the end of the animation.
+
+    Args:
+        user_name (str, optional): Name of the user. Defaults to "You!".
+    """
     print("\n" + CYAN + "="*70 + RESET)
     print(CYAN + "                           **CREDITS**" + RESET)
     print(CYAN + "="*70 + RESET)
@@ -91,27 +120,56 @@ def show_credits(user_name="You!"):
     print(GREEN + "Original Animation: " + MAGENTA + "Alstroemeria Records (Bad Apple!! MV)" + RESET)
     print(GREEN + "Source / Game Video: " + BLUE + "Touhou Project (ZUN)" + RESET)
     print("Inspired by open-source Bad Apple!! terminal projects by the community.")
-    print(GREEN + f"And {user_name}! {getpass.getuser()}! To play on your terminal.." + RESET)  
+    print(GREEN + f"And {user_name}! {getpass.getuser()}! Hope you enjoyed playing this on your terminal.." + RESET)  
     print(CYAN + "="*70 + RESET + "\n")
 
-def signal_handler(sig, frame):
+def signal_handler(sig:int, frame)-> None:
+    """
+    Handle keyboard interrupts gracefully, showing credits before exit.
+    """
     print("\nI'm sorry, but did you interrupt?")
     show_credits()
     sys.exit(0)
 
-def resize_image(image_frame):
+def resize_image(image_frame:Image.Image)-> Image.Image:
+    """
+    Resize an image while maintaining aspect ratio for terminal display.
+
+    Args:
+        image_frame (PIL.Image.Image): Image to resize.
+
+    Returns:
+        PIL.Image.Image: Resized image.
+    """
     width, height = image_frame.size
     aspect_ratio = (height/float(width * 2.5)) 
     new_height = int(aspect_ratio*FRAME_SIZE)
     resized_image = image_frame.resize((FRAME_SIZE, new_height))
     return resized_image
 
-def characterize(img):
+def characterize(img:Image.Image)-> str:
+    """
+    Convert a grayscale image into ASCII characters.
+
+    Args:
+        img (PIL.Image.Image): Grayscale image.
+
+    Returns:
+        str: ASCII representation of the image.
+    """
     pixies = img.getdata()
     chars = "".join([ASCII_CHARS[pixy * len(ASCII_CHARS) // 256] for pixy in pixies])
     return chars
 
-def extractor(video_path, start_frame, nf=1000):
+def extractor(video_path:str, start_frame:int, nf:int = 1000) -> None:
+    """
+    Extract frames from a video and convert them to ASCII art.
+
+    Args:
+        video_path (str): Path to video.
+        start_frame (int): Frame to start extraction.
+        nf (int, optional): Number of frames to extract. Defaults to 1000.
+    """
     cap = cv2.VideoCapture(video_path)
     cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
     
@@ -131,18 +189,27 @@ def extractor(video_path, start_frame, nf=1000):
             pass
         
         c += 1
-        ret, img_frame = cap.read()  # read next frame
+        ret, img_frame = cap.read()  
 
     cap.release()
 
-def play_audio(path):
+def play_audio(path:str) -> None:
+    """
+    Play audio in the background using pygame.
+
+    Args:
+        path (str): Path to audio file.
+    """
     pygame.init()
     pygame.mixer.pre_init(44100, -16, 2, 2048)
     pygame.mixer.init()
     pygame.mixer.music.load(path)
     pygame.mixer.music.play()
 
-def play_terminal():
+def play_terminal()-> None:
+    """
+    Play ASCII video in the terminal with a fixed framerate.
+    """
     os.system('mode 150, 500')
     timer = fpstimer.FPSTimer(30)
     
@@ -150,7 +217,16 @@ def play_terminal():
         sys.stdout.write("\r" + TERMINAL_VIDEO[frame_number])
         timer.sleep()
 
-def preprocessing(video):
+def preprocessing(video: str) -> int:
+    """
+    Preprocess the video to extract frames and generate audio.
+
+    Args:
+        video (str): Path to the video file.
+
+    Returns:
+        int: Total number of frames in the video.
+    """
     if os.path.exists(video):
         vid = video.strip()
         cap = cv2.VideoCapture(vid)
@@ -175,6 +251,10 @@ def preprocessing(video):
 
 signal.signal(signal.SIGINT, signal_handler)
 def main():
+    """
+    Main entry point for the Bad Apple!! terminal player.
+    Handles user prompts, video download, preprocessing, and playback.
+    """
     try:
         rotate_apple(apple_frames, loops=3)
         sys.stdout.write('\n')
@@ -195,18 +275,14 @@ def main():
                     sys.stdout.write(f"\r{color}Starting video in {i}...{RESET}")
                     sys.stdout.flush()
                     time.sleep(1)
-
-                # "Starting now!" in GREEN
                 sys.stdout.write(f"\r{GREEN}Starting now!        {RESET}\n")
                 time.sleep(0.75)
-
-                # Play audio and video
                 play_audio('assets/badapple.mp3')
                 play_terminal()
                 break
 
             elif ch == 'n':
-                sys.stdout.write(YELLOW + "Alright, exiting... 🍎\n" + RESET)
+                sys.stdout.write(YELLOW + "Alright, exiting...\n" + RESET)
                 break
 
             else:
